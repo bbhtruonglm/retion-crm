@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { IOrganization, ITabType } from "../types";
-import { MOCK_PACKAGES, MOCK_DURATIONS } from "../constants";
+import { MOCK_PACKAGES, MOCK_DURATIONS, BANK_ACCOUNTS } from "../constants";
 import { QrCode, Wallet, Package, Check, ClipboardCopy } from "lucide-react";
 import {
   Select,
@@ -21,10 +21,15 @@ export interface IOrderTabsProps {
     amount: number,
     content: string,
     packageName?: string,
-    autoActivate?: boolean
+    autoActivate?: boolean,
+    qrCode?: string
   ) => void;
   /** Tài khoản hiện tại */
   current_user: any;
+  /** ID thành viên */
+  selected_member_id: string;
+  /** Hàm callback khi thành công */
+  on_success?: () => void;
 }
 
 /**
@@ -36,6 +41,8 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
   customer,
   on_initiate_payment,
   current_user,
+  selected_member_id,
+  on_success,
 }) => {
   const { t } = useTranslation();
   /** Tab đang active: 'topup' hoặc 'buy_package' */
@@ -157,6 +164,7 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
         meta: {
           ...meta,
           ref: current_user?.alias_code || current_user?.user_id || "UNKNOWN",
+          actual_user_id: selected_member_id,
         },
         ...(PROMO_CODE ? { voucher_code: PROMO_CODE } : {}),
       },
@@ -172,7 +180,41 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
     /** Đối tượng giao dịch */
     const TXN = TXN_DATA.data || TXN_DATA;
 
-    return TXN.txn_code || TXN.txn_id || `Unknown-${Date.now()}`;
+    const TXN_CODE = TXN.txn_code || TXN.txn_id || `Unknown-${Date.now()}`;
+    let QR_STRING = "";
+
+    try {
+      /** Gọi API generate QR */
+      const QR_RES = await apiService.GenerateQrCode(
+        {
+          org_id: customer.orgId,
+          bank_bin: BANK_ACCOUNTS.BBH.bank_bin,
+          consumer_id: BANK_ACCOUNTS.BBH.account,
+          amount: amount,
+          message: TXN_CODE,
+          version: "v2",
+          txn_id: TXN_CODE,
+        },
+        TOKEN
+      );
+
+      if (QR_RES.status === 200 && QR_RES.data) {
+        /** Trả về chuỗi QR data nếu thành công */
+        const QR_DATA =
+          QR_RES.data.data?.qr_code ||
+          QR_RES.data.qr_code ||
+          QR_RES.data.data ||
+          QR_RES.data;
+
+        if (typeof QR_DATA === "string") {
+          QR_STRING = QR_DATA;
+        }
+      }
+    } catch (e) {
+      console.error("Failed to generate QR", e);
+    }
+
+    return { code: TXN_CODE, qr: QR_STRING };
   };
 
   /**
@@ -186,10 +228,11 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
     SetIsLoading(true);
     try {
       /** Mã Code từ transaction */
-      const CODE = await CreateTransaction(AMOUNT, {
+      const { code, qr } = await CreateTransaction(AMOUNT, {
         type: "TOP_UP_WALLET",
       });
-      on_initiate_payment(AMOUNT, CODE);
+
+      on_initiate_payment(AMOUNT, code, undefined, undefined, qr);
     } catch (error) {
       console.error(error);
       alert(
@@ -273,9 +316,15 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
           })
         );
 
-        /** Chờ 1 giây rồi reload */
+        /** Chờ 1 giây rồi thông báo */
         await new Promise((resolve) => setTimeout(resolve, 1000));
-        window.location.reload();
+        alert(
+          t("activate_success", { defaultValue: "Kích hoạt gói thành công!" })
+        );
+
+        if (on_success) {
+          on_success();
+        }
       } catch (error) {
         console.error(error);
         alert(
@@ -293,16 +342,17 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
     SetIsLoading(true);
     try {
       /** Mã Code từ transaction */
-      const CODE = await CreateTransaction(BUY_NEEDED_AMOUNT, {
+      const { code, qr } = await CreateTransaction(BUY_NEEDED_AMOUNT, {
         type: "PURCHASE",
         product: SELECTED_PACKAGE_ID.toUpperCase(),
         quantity: SELECTED_DURATION_MONTHS,
       });
       on_initiate_payment(
         BUY_NEEDED_AMOUNT,
-        CODE,
+        code,
         SELECTED_PACKAGE.name,
-        AUTO_ACTIVATE
+        AUTO_ACTIVATE,
+        qr
       );
     } catch (error) {
       console.error(error);

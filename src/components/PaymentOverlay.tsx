@@ -7,9 +7,13 @@ import {
   CheckCircle,
   ArrowRight,
   RotateCcw,
+  Download,
+  Image as ImageIcon,
 } from "lucide-react";
 import { IPaymentDetails, IPaymentStep } from "../types";
 import { CURRENT_USER } from "../constants";
+import RetionLogo from "../assets/icons/Logo_retion_embed.png";
+import { API_CONFIG } from "../services/api.config";
 
 export interface IPaymentOverlayProps {
   /** Bước thanh toán hiện tại */
@@ -74,12 +78,33 @@ const PaymentOverlay: React.FC<IPaymentOverlayProps> = ({
   /**
    * Xử lý copy link
    */
-  const HandleCopy = () => {
-    navigator.clipboard.writeText(
-      `https://payment.link/fake/${details.amount}`
-    );
-    SetCopyFeedback(true);
-    setTimeout(() => SetCopyFeedback(false), 2000);
+  /**
+   * Xử lý download QR
+   */
+  const HandleDownloadQr = async () => {
+    try {
+      const QR_BASE_URL =
+        API_CONFIG.QR_SERVICE_URL ||
+        "https://api.qrserver.com/v1/create-qr-code/";
+      const QR_SRC = `${QR_BASE_URL}?size=500x500&data=${encodeURIComponent(
+        details.qrCode || details.content
+      )}`;
+
+      const response = await fetch(QR_SRC);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `QR-Payment-${details.content}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Failed to download QR", e);
+      alert("Không thể tải ảnh QR. Vui lòng thử lại.");
+    }
   };
 
   return (
@@ -104,88 +129,130 @@ const PaymentOverlay: React.FC<IPaymentOverlayProps> = ({
           &#8203;
         </span>
 
-        <div className="relative inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+        <div className="relative inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl w-full">
           {/* --- CONTENT FOR PENDING STATE --- */}
           {step === "pending" && (
-            <div className="bg-white">
-              <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
-                <h3
-                  className="text-lg leading-6 font-bold text-gray-900"
-                  id="modal-title"
-                >
-                  {t("payment_modal_title")}
-                </h3>
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-gray-500"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
+            <div className="bg-white p-6">
+              <div className="flex flex-col md:flex-row gap-8">
+                {/* LEFT: QR Display */}
+                <div className="flex-1 flex flex-col items-center justify-center">
+                  <div className="relative w-64 h-64 p-2 bg-white rounded-lg shadow-sm">
+                    {/* Corners */}
+                    <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-500 rounded-tl-lg -mt-1 -ml-1"></div>
+                    <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-500 rounded-tr-lg -mt-1 -mr-1"></div>
+                    <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-500 rounded-bl-lg -mb-1 -ml-1"></div>
+                    <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-500 rounded-br-lg -mb-1 -mr-1"></div>
 
-              <div className="px-6 py-6 text-center">
-                <p className="text-sm text-gray-500 mb-6">
-                  {t("send_code_to_customer")}
-                </p>
+                    {/* QR Image */}
+                    <div className="w-full h-full flex items-center justify-center overflow-hidden bg-gray-50 relative">
+                      <img
+                        src={`${
+                          API_CONFIG.QR_SERVICE_URL ||
+                          "https://api.qrserver.com/v1/create-qr-code/"
+                        }?size=300x300&data=${encodeURIComponent(
+                          details.qrCode || details.content
+                        )}`}
+                        alt="Payment QR"
+                        className="w-full h-full object-contain mix-blend-multiply"
+                      />
+                      {/* Centered Logo */}
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-12 h-12 bg-white rounded-lg p-1 shadow-sm flex items-center justify-center">
+                        <img
+                          src={RetionLogo}
+                          alt="Logo"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    </div>
 
-                {/* QR Placeholder */}
-                <div className="mx-auto w-48 h-48 bg-gray-100 border-2 border-gray-200 rounded-lg flex items-center justify-center mb-6 relative group">
-                  <img
-                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
-                      details.content
-                    )}`}
-                    alt="Payment QR"
-                    className="w-full h-full object-contain p-2"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-5 transition-all" />
-                </div>
-
-                <div className="space-y-2 mb-6 text-left bg-gray-50 p-4 rounded-md">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 text-sm">{t("amount")}</span>
-                    <span className="font-bold text-blue-700">
-                      {FormatCurrency(details.amount)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 text-sm">
-                      {t("content")}
-                    </span>
-                    <span className="font-medium text-gray-800 text-sm break-all">
-                      {details.content}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col items-center justify-center space-y-2 mb-6">
-                  <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-                  <span className="text-sm text-blue-600 font-medium">
-                    {t("waiting_payment")}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {t("auto_close_hint")}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={HandleCopy}
-                    className="flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-                  >
-                    {COPY_FEEDBACK ? (
-                      <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                    ) : (
-                      <Copy className="w-4 h-4 mr-2" />
+                    {/* Loading Overlay */}
+                    {!details.qrCode && !details.content && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-90 z-10">
+                        <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                      </div>
                     )}
-                    {COPY_FEEDBACK ? t("copied") : t("copy_link")}
-                  </button>
-                  <button
-                    onClick={onClose}
-                    className="flex items-center justify-center px-4 py-2 border border-red-200 shadow-sm text-sm font-medium rounded-md text-red-600 bg-white hover:bg-red-50"
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    {t("cancel")}
-                  </button>
+                  </div>
+
+                  <p className="mt-4 text-2xl font-bold text-blue-600">
+                    {FormatCurrency(details.amount)}
+                  </p>
+                </div>
+
+                {/* RIGHT: Instructions & Actions */}
+                <div className="flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                      <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm">
+                        <RotateCcw className="w-4 h-4" />
+                      </span>
+                      {t("payment_modal_title", { defaultValue: "Thanh toán" })}
+                    </h3>
+
+                    <div className="space-y-4 text-sm text-gray-600 mb-6">
+                      <div className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold text-xs text-gray-600">
+                          1
+                        </span>
+                        <p>
+                          {t("step_open_app", {
+                            defaultValue:
+                              "Mở ứng dụng Ngân hàng hoặc Ví điện tử trên điện thoại.",
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold text-xs text-gray-600">
+                          2
+                        </span>
+                        <p>
+                          {t("step_choose_qr", {
+                            defaultValue: "Chọn tính năng Quét QR (Scan QR).",
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-start gap-3">
+                        <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center font-bold text-xs text-gray-600">
+                          3
+                        </span>
+                        <p>
+                          {t("step_scan_code", {
+                            defaultValue:
+                              "Quét mã QR ở bên cạnh để thanh toán.",
+                          })}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Auto-check hint */}
+                    <div className="bg-blue-50 p-3 rounded-lg flex items-center gap-3 mb-6">
+                      <div className="animate-spin text-blue-500">
+                        <Loader2 className="w-5 h-5" />
+                      </div>
+                      <span className="text-sm text-blue-700 font-medium">
+                        {t("waiting_payment_auto", {
+                          defaultValue: "Hệ thống đang chờ nhận tiền...",
+                        })}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={HandleDownloadQr}
+                      className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      <ImageIcon className="w-4 h-4 mr-2" />
+                      {t("save_image", { defaultValue: "Lưu ảnh QR" })}
+                    </button>
+                    <button
+                      onClick={onClose}
+                      className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      {t("cancel_transaction", {
+                        defaultValue: "Hủy giao dịch",
+                      })}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

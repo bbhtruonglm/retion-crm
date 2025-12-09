@@ -35,6 +35,8 @@ interface ImportMetaEnv {
   readonly VITE_MANAGER_URL?: string;
   /** Billing API URL */
   readonly VITE_BILLING_URL?: string;
+  /** QR Service URL */
+  readonly VITE_QR_SERVICE_URL?: string;
 }
 
 interface ImportMeta {

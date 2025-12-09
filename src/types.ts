@@ -16,6 +16,7 @@ export interface IOrganization {
     org_country?: string;
     org_currency?: string;
   };
+  user?: any;
 }
 
 /**
@@ -109,5 +110,14 @@ export type IPaymentStep = "idle" | "pending" | "success";
 export interface IPaymentDetails {
   amount: number;
   content: string;
+  qrCode?: string;
   packageName?: string;
+}
+
+export interface IBankAccount {
+  bank_bin: number;
+  account: string;
+  name: string;
+  bank: string;
+  code: string;
 }

@@ -9,6 +9,8 @@ export const API_CONFIG = {
   /** Billing API URL - Dùng cho billing, wallet, transaction */
   BILLING_URL:
     import.meta.env.VITE_BILLING_URL || import.meta.env.VITE_MANAGER_URL,
+  /** QR Service URL */
+  QR_SERVICE_URL: import.meta.env.VITE_QR_SERVICE_URL,
 };
 
 /**

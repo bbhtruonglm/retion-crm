@@ -228,6 +228,53 @@ class ApiService {
       }
     );
   }
+
+  /**
+   * Billing API - Read Membership
+   * @param {string} orgId - Organization ID
+   * @param {string} token - Token xác thực
+   * @returns {Promise<IApiResponse>}
+   */
+  async ReadMembers(orgId: string, token?: string): Promise<IApiResponse> {
+    return this.Request(
+      API_CONFIG.BILLING_URL,
+      "/app/member_ship/read_member",
+      {
+        method: EHttpMethod.POST,
+        body: { org_id: orgId },
+        token,
+      }
+    );
+  }
+
+  /**
+   * Billing API - Generate QR Code
+   * @param {object} data - Dữ liệu tạo QR
+   * @param {string} token - Token xác thực
+   * @returns {Promise<IApiResponse>}
+   */
+  async GenerateQrCode(
+    data: {
+      org_id: string;
+      bank_bin: number;
+      consumer_id: string;
+      amount: number;
+      message: string;
+      version: string;
+      txn_id: string;
+    },
+    token?: string
+  ): Promise<IApiResponse> {
+    return this.Request(
+      "https://chatbox-api.34.142.177.104.sslip.io/v1", // Hardcoded per user request, can be moved to config later
+      "/billing/app/wallet/qr_code",
+      {
+        method: EHttpMethod.POST,
+        body: data,
+        token,
+      }
+    );
+  }
 }
 
 /** Export singleton instance */

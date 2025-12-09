@@ -8,6 +8,14 @@ import { Search } from "lucide-react";
 import { MOCK_DB } from "./constants";
 import { IOrganization, IPaymentDetails, IPaymentStep } from "./types";
 import { apiService } from "./services";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { User } from "lucide-react";
 
 /**
  * Component chính của ứng dụng
@@ -41,6 +49,11 @@ const App: React.FC = () => {
   const [PAYMENT_DETAILS, SetPaymentDetails] = useState<IPaymentDetails | null>(
     null
   );
+
+  /** Danh sách thành viên */
+  const [MEMBERS, SetMembers] = useState<any[]>([]);
+  /** ID thành viên đang chọn */
+  const [SELECTED_MEMBER_ID, SetSelectedMemberId] = useState<string>("");
 
   /**
    * Lấy thông tin người dùng hiện tại
@@ -155,6 +168,7 @@ const App: React.FC = () => {
         refName: null,
         refStatus: "Chưa có",
         org_info: DATA.org_info,
+        user: DATA.user,
       };
 
       SetCustomer(ORG_DATA);
@@ -216,6 +230,67 @@ const App: React.FC = () => {
   }, []); // Empty dependency array - chỉ chạy 1 lần khi mount
 
   /**
+   * Fetch danh sách thành viên khi CUSTOMER thay đổi
+   */
+  useEffect(() => {
+    if (!CUSTOMER?.orgId) {
+      SetMembers([]);
+      SetSelectedMemberId("");
+      return;
+    }
+
+    const FetchMembers = async () => {
+      try {
+        const CURRENT_TOKEN = TOKEN || localStorage.getItem("auth_token");
+        const RES = await apiService.ReadMembers(
+          CUSTOMER.orgId,
+          CURRENT_TOKEN || undefined
+        );
+        console.log(RES, "res");
+        if (RES.status === 200 && RES.data) {
+          const LIST = RES.data.data || RES.data || [];
+          if (Array.isArray(LIST)) {
+            SetMembers(LIST);
+
+            /** Logic chọn mặc định */
+            let DEFAULT_MEMBER = null;
+            console.log(CUSTOMER.user, "user");
+            console.log(LIST, "list");
+            if (CUSTOMER.user) {
+              /** Tìm member trùng với user của org */
+              DEFAULT_MEMBER = LIST.find(
+                (m: any) =>
+                  m?.user_info?.user_id === CUSTOMER?.user?.user_id ||
+                  m?.user_info?.fb_staff_id === CUSTOMER?.user?.fb_staff_id
+              );
+            }
+            console.log(DEFAULT_MEMBER, "default");
+            if (!DEFAULT_MEMBER) {
+              /** Tìm admin đầu tiên */
+              DEFAULT_MEMBER = LIST.find(
+                (m: any) => m.role === "ADMIN" || m.is_admin
+              );
+            }
+
+            if (!DEFAULT_MEMBER && LIST.length > 0) {
+              // Lấy member đầu tiên
+              DEFAULT_MEMBER = LIST[0];
+            }
+
+            if (DEFAULT_MEMBER) {
+              SetSelectedMemberId(DEFAULT_MEMBER._id || DEFAULT_MEMBER.user_id);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch members", error);
+      }
+    };
+
+    FetchMembers();
+  }, [CUSTOMER, CURRENT_USER, TOKEN]);
+
+  /**
    * Polling for Transaction Status
    */
   useEffect(() => {
@@ -253,6 +328,8 @@ const App: React.FC = () => {
             if (IS_SUCCESS) {
               SetPaymentStep("success");
               clearInterval(INTERVAL);
+              /** Làm mới thông tin (bao gồm ví) */
+              PerformSearch(CUSTOMER.orgId);
             }
           }
         } catch (e) {
@@ -286,9 +363,10 @@ const App: React.FC = () => {
     amount: number,
     content: string,
     packageName?: string,
-    autoActivate?: boolean
+    autoActivate?: boolean,
+    qrCode?: string
   ) => {
-    SetPaymentDetails({ amount, content, packageName });
+    SetPaymentDetails({ amount, content, packageName, qrCode });
     SetPaymentStep("pending");
   };
 
@@ -365,6 +443,56 @@ const App: React.FC = () => {
               <span className="mr-2">⚠️</span> {ERROR_SEARCH}
             </div>
           )}
+
+          {/* Member Selection */}
+          {MEMBERS.length > 0 && (
+            <div className="mt-6 border-t pt-4 animate-fade-in">
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                {t("select_member", { defaultValue: "Chọn nhân viên/đối tác" })}
+              </label>
+              <div className="max-w-md">
+                <Select
+                  value={SELECTED_MEMBER_ID}
+                  onValueChange={SetSelectedMemberId}
+                >
+                  <SelectTrigger className="w-full bg-white border-gray-300">
+                    <SelectValue
+                      placeholder={t("select_member", {
+                        defaultValue: "Chọn nhân viên",
+                      })}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MEMBERS.map((m) => (
+                      <SelectItem
+                        key={m._id || m.user_id}
+                        value={m._id || m.user_id}
+                      >
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium">
+                            {m?.user_info?.full_name ||
+                              m?.user_info?.user_name ||
+                              m?.user_info?.name ||
+                              m?.user_info?.email ||
+                              "Unknown"}
+                          </span>
+                          {m.role === "ADMIN" && (
+                            <span className="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">
+                              Admin
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-gray-500">
+                  * Thành viên này sẽ được ghi nhận trong giao dịch
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* SECTION 2 & 3 (Conditional) */}
@@ -378,6 +506,8 @@ const App: React.FC = () => {
               customer={CUSTOMER}
               current_user={CURRENT_USER}
               on_initiate_payment={HandleInitiatePayment}
+              selected_member_id={SELECTED_MEMBER_ID}
+              on_success={() => PerformSearch(CUSTOMER.orgId)}
             />
           </div>
         )}
