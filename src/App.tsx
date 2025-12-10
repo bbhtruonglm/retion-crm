@@ -4,7 +4,7 @@ import Header from "./components/Header";
 import CustomerInfo from "./components/CustomerInfo";
 import OrderTabs from "./components/OrderTabs";
 import PaymentOverlay from "./components/PaymentOverlay";
-import { Search } from "lucide-react";
+import { GlassesIcon, Search } from "lucide-react";
 import { MOCK_DB } from "./constants";
 import {
   IOrganization,
@@ -511,6 +511,17 @@ const App: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* Button kiểm tra thủ công */}
+            <button
+              onClick={() => PerformSearch(SEARCH_QUERY)}
+              disabled={LOADING_SEARCH}
+              className="bg-blue-600 text-white px-6 py-2 flex items-center gap-2 rounded-md font-medium hover:bg-blue-700 transition-colors shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed shrink-0"
+            >
+              {/* Icon kính lúp */}
+              <Search className="w-5 h-5 mr-2" />
+              {t("check", { defaultValue: "Kiểm tra" })}
+            </button>
           </div>
           {ERROR_SEARCH && (
             <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm font-medium rounded-md border border-red-100 flex items-center animate-pulse">
