@@ -182,22 +182,60 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
       currency: "VND",
     }).format(val);
 
+  /**
+   * Tính phân bổ huấn luyện AI
+   * Logic:
+   * - Mặc định 12 tháng
+   * - Nếu < 12 tháng: tính theo tỉ lệ (amount / 12 * duration)
+   * - Nếu >= 12 tháng: lấy max (amount), không scale thêm
+   */
+  const AI_TRAIN_ALLOCATION = useMemo(() => {
+    /** Nếu gói dịch vụ không có số lượng huấn luyện AI, trả về 0 */
+    if (!SELECTED_PACKAGE.ai_train_package_amount) return 0;
+
+    /** Số lượng huấn luyện AI cơ bản từ gói dịch vụ */
+    const BASE_AMOUNT = SELECTED_PACKAGE.ai_train_package_amount;
+
+    /** Nếu số tháng đã chọn nhỏ hơn 12 */
+    if (SELECTED_DURATION_MONTHS < 12) {
+      /** Tính toán số lượng huấn luyện AI theo tỷ lệ số tháng đã chọn và làm tròn */
+      return Math.round((BASE_AMOUNT / 12) * SELECTED_DURATION_MONTHS);
+    } else {
+      /** Nếu số tháng đã chọn lớn hơn hoặc bằng 12, trả về số lượng cơ bản */
+      return BASE_AMOUNT;
+    }
+  }, [SELECTED_PACKAGE, SELECTED_DURATION_MONTHS]);
+
   // -- HANDLERS --
 
   /**
    * Tính toán hiển thị text sau khi nhập mã thành công
    */
+  /**
+   * Tính toán và trả về chuỗi hiển thị sự thay đổi giá
+   * @param {number} original_price - Giá gốc
+   * @param {number} new_price - Giá mới
+   * @returns {string} - Chuỗi mô tả sự thay đổi giá
+   */
   const getPriceChangeText = (original_price: number, new_price: number) => {
+    /** Tính toán sự chênh lệch giữa giá mới và giá gốc */
     const DIFF_AMOUNT = new_price - original_price;
+
+    /** Nếu giá mới nhỏ hơn giá gốc (giảm giá) */
     if (DIFF_AMOUNT < 0) {
+      /** Trả về chuỗi "Giảm" kèm số tiền giảm */
       return `${t("pay_less", {
         defaultValue: "Giảm",
       })} ${FormatCurrency(Math.abs(DIFF_AMOUNT))}`;
     } else if (DIFF_AMOUNT > 0) {
+      /** Nếu giá mới lớn hơn giá gốc (tăng giá) */
+      /** Trả về chuỗi "Tăng" kèm số tiền tăng */
       return `${t("pay_more", {
         defaultValue: "Tăng",
       })} ${FormatCurrency(DIFF_AMOUNT)}`;
     } else {
+      /** Nếu không có sự thay đổi giá */
+      /** Trả về chuỗi rỗng */
       return "";
     }
   };
@@ -415,14 +453,19 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
       return;
     }
 
-    /** Số tiền nạp đã parse */
-    let amount = parseInt(TOPUP_AMOUNT.replace(/\D/g, ""), 10) || 0;
-    if (amount <= 0) return;
+    /** Số tiền nạp đã được phân tích cú pháp từ TOPUP_AMOUNT */
+    let parsed_amount = parseInt(TOPUP_AMOUNT.replace(/\D/g, ""), 10) || 0;
+    /** Nếu số tiền nạp nhỏ hơn hoặc bằng 0, không thực hiện tiếp */
+    if (parsed_amount <= 0) return;
 
-    // Nếu có voucher verified, dùng số tiền đã discount
+    /** Nếu có mã giảm giá đã được xác minh và số tiền chiết khấu tồn tại */
     if (DISCOUNTED_AMOUNT !== null && PROMO_CODE === VERIFIED_VOUCHER_CODE) {
-      amount = DISCOUNTED_AMOUNT;
+      /** Cập nhật số tiền giao dịch là số tiền đã được chiết khấu */
+      parsed_amount = DISCOUNTED_AMOUNT;
     }
+
+    /** Số tiền cuối cùng để tạo giao dịch */
+    const amount = parsed_amount;
 
     SetIsLoading(true);
     try {
@@ -504,6 +547,10 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
             ...(PROMO_CODE && PROMO_CODE === VERIFIED_VOUCHER_CODE
               ? { voucher_code: PROMO_CODE }
               : {}),
+            /** Thêm meta phân bổ AI training nếu có */
+            ...(AI_TRAIN_ALLOCATION > 0
+              ? { ai_train_package_amount: AI_TRAIN_ALLOCATION }
+              : {}),
           },
           TOKEN
         );
@@ -565,6 +612,10 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
         type: "PURCHASE",
         product: SELECTED_PACKAGE.id,
         quantity: SELECTED_DURATION.months,
+        /** Thêm meta phân bổ AI training nếu có - lưu vào meta của transaction */
+        ...(AI_TRAIN_ALLOCATION > 0
+          ? { ai_train_package_amount: AI_TRAIN_ALLOCATION }
+          : {}),
       });
 
       SetIsLoading(false);
@@ -963,7 +1014,43 @@ const OrderTabs: React.FC<IOrderTabsProps> = ({
                 </div>
               </div>
             </div>
-
+            <div className="mt-8">
+              {/* AI TRAINING ALLOCATION INFO */}
+              {AI_TRAIN_ALLOCATION > 0 && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl flex items-center justify-between shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                      <Info className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-lg">
+                        Phân bổ huấn luyện AI
+                      </h4>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Ngân sách huấn luyện AI dành riêng cho doanh nghiệp
+                      </p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="text-xs bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">
+                          {SELECTED_DURATION_MONTHS < 12
+                            ? "Theo tỉ lệ tháng"
+                            : "Full gói 1 năm"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-2xl font-extrabold text-blue-700">
+                      {FormatCurrency(AI_TRAIN_ALLOCATION)}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1 font-medium">
+                      {SELECTED_DURATION_MONTHS < 12
+                        ? `Đã tính theo ${SELECTED_DURATION_MONTHS} tháng`
+                        : "Mức hỗ trợ tối đa"}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
             {/* 3. ACTION BUTTON */}
             <div className="mt-8">
               {BUY_NEEDED_AMOUNT > 0 ? (
