@@ -23,14 +23,6 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
           secure: false,
         },
-        "/billing": {
-          target:
-            env.VITE_API_MANAGER_TARGET ||
-            "https://chatbox-billing.botbanhang.vn",
-          changeOrigin: true,
-          secure: false,
-          rewrite: (path) => path.replace(/^\/billing/, ""),
-        },
       },
     },
     plugins: [react()],
