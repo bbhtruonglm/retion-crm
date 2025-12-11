@@ -71,7 +71,7 @@ class ApiService {
    * @returns {Promise<IApiResponse>}
    */
   async ReadWallet(orgId: string, token?: string): Promise<IApiResponse> {
-    return this.Request(API_CONFIG.BILLING_URL, "/app/wallet/read_wallet", {
+    return this.Request(API_CONFIG.BILLING_URL, "/manager/wallet/read_wallet", {
       method: EHttpMethod.POST,
       body: { org_id: orgId },
       token,
@@ -96,11 +96,15 @@ class ApiService {
     },
     token?: string
   ): Promise<IApiResponse> {
-    return this.Request(API_CONFIG.BILLING_URL, "/app/transaction/create_txn", {
-      method: EHttpMethod.POST,
-      body: data,
-      token,
-    });
+    return this.Request(
+      API_CONFIG.BILLING_URL,
+      "/manager/transaction/create_txn",
+      {
+        method: EHttpMethod.POST,
+        body: data,
+        token,
+      }
+    );
   }
 
   /**
@@ -118,11 +122,15 @@ class ApiService {
     },
     token?: string
   ): Promise<IApiResponse> {
-    return this.Request(API_CONFIG.BILLING_URL, "/app/transaction/check_txn", {
-      method: EHttpMethod.POST,
-      body: data,
-      token,
-    });
+    return this.Request(
+      API_CONFIG.BILLING_URL,
+      "/manager/transaction/check_txn",
+      {
+        method: EHttpMethod.POST,
+        body: data,
+        token,
+      }
+    );
   }
 
   /**
@@ -239,7 +247,7 @@ class ApiService {
   async ReadMembers(orgId: string, token?: string): Promise<IApiResponse> {
     return this.Request(
       API_CONFIG.BILLING_URL,
-      "/app/member_ship/read_member",
+      "/manager/member_ship/read_member",
       {
         method: EHttpMethod.POST,
         body: { org_id: orgId },
@@ -266,7 +274,7 @@ class ApiService {
     },
     token?: string
   ): Promise<IApiResponse> {
-    return this.Request(API_CONFIG.BILLING_URL, "/app/wallet/qr_code", {
+    return this.Request(API_CONFIG.BILLING_URL, "/manager/wallet/qr_code", {
       method: EHttpMethod.POST,
       body: data,
       token,
@@ -284,14 +292,19 @@ class ApiService {
       org_id: string;
       voucher_code: string;
       txn_amount: number;
+      user_id: string;
     },
     token?: string
   ): Promise<IApiResponse> {
-    return this.Request(API_CONFIG.BILLING_URL, "/app/voucher/verify_voucher", {
-      method: EHttpMethod.POST,
-      body: data,
-      token,
-    });
+    return this.Request(
+      API_CONFIG.BILLING_URL,
+      "/manager/voucher/verify_voucher",
+      {
+        method: EHttpMethod.POST,
+        body: data,
+        token,
+      }
+    );
   }
 }
 
